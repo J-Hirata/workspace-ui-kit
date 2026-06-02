@@ -54,5 +54,17 @@ export const PANE4_SECTION_IDS = {
     comment: "pane4-m2-comment",
     summary: "pane4-m2-summary",
     attachments: "pane4-m2-attachments",
+    /** 候補者単位の仮想フォルダ素材（IndexedDB）。選考添付とは別ストア */
+    materialLibrary: "pane4-m2-material-library",
   },
+} as const;
+
+/** Pane 4 下部の素材ライブラリ（フォルダ + ローカルファイル） */
+export const PANE4_MATERIAL_LIBRARY = {
+  title: "素材ライブラリ（この端末に保存）",
+  footnote:
+    "同一ブラウザ内の IndexedDB に保存されます。別端末やサーバー共有は未対応（将来は API + オブジェクトストレージ想定）。",
+  newFolder: "フォルダを作成",
+  uploadFiles: "ファイルを追加",
+  emptyFolder: "このフォルダにはまだ素材がありません。",
 } as const;

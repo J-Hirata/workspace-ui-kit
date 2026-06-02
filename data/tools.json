@@ -1,0 +1,114 @@
+[
+  {
+    "id": "t1",
+    "name": "在庫管理ツール作成",
+    "zone": "creating",
+    "priority": { "impact": 5, "urgency": 5, "ease": 3 },
+    "currentVersion": "v0.1",
+    "nextStep": "CSV 出力だけ先に実装",
+    "markdown": "## 目的\n社内の在庫をスプレッドシートから脱却し、入出庫を1画面で追えるようにする。\n\n## 仕様メモ\n- 品目マスタは JSON シードで開始\n- エクスポートは CSV のみ（v1）",
+    "materials": {
+      "memo": "ワイヤー確定済み。four-pane-planning を正とする。",
+      "images": [
+        { "id": "img1", "name": "画面案.png" },
+        { "id": "img2", "name": "フロー図.png" }
+      ],
+      "links": [
+        "https://github.com/J-Hirata/four-pane-planning",
+        "https://github.com/J-Hirata/workspace-ui-kit"
+      ]
+    }
+  },
+  {
+    "id": "t2",
+    "name": "AIプロジェクトのプラン",
+    "zone": "creating",
+    "priority": { "impact": 4, "urgency": 3, "ease": 4 },
+    "currentVersion": "v0.0",
+    "nextStep": "優先度の星を P3 で確定してから着手",
+    "markdown": "学習用プランのたたき台。Cursor / 4ペイン UI の課題と連動。",
+    "materials": {
+      "memo": "",
+      "images": [],
+      "links": []
+    }
+  },
+  {
+    "id": "t3",
+    "name": "日報まとめビューア",
+    "zone": "creating",
+    "priority": { "impact": 3, "urgency": 2, "ease": 4 },
+    "currentVersion": "v0.1",
+    "nextStep": "Markdown インポートのパーサを試す",
+    "markdown": "",
+    "materials": {
+      "memo": "Notion からのコピペを想定",
+      "images": [],
+      "links": []
+    }
+  },
+  {
+    "id": "t4",
+    "name": "梱包チェックリスト",
+    "zone": "creating",
+    "priority": { "impact": 2, "urgency": 2, "ease": 5 },
+    "currentVersion": "v0.2",
+    "nextStep": "チェック項目のテンプレ化",
+    "markdown": "",
+    "materials": { "memo": "", "images": [], "links": [] }
+  },
+  {
+    "id": "t5",
+    "name": "採用ダッシュボード（ひな形）",
+    "zone": "operating",
+    "priority": { "impact": 3, "urgency": 2, "ease": 3 },
+    "currentVersion": "v1.0",
+    "nextStep": "PM 用に差し替え完了後はアーカイブ候補",
+    "markdown": "workspace-ui-kit の元サンプル。参考用に残す。",
+    "materials": {
+      "memo": "IndexedDB フォルダデモは v1 必須外",
+      "images": [],
+      "links": ["https://github.com/J-Hirata/workspace-ui-kit"]
+    }
+  },
+  {
+    "id": "t6",
+    "name": "請求書フォーマット検討",
+    "zone": "operating",
+    "priority": { "impact": 2, "urgency": 1, "ease": 2 },
+    "currentVersion": "v0.3",
+    "nextStep": "税務は v1 外のため保留メモのみ",
+    "markdown": "",
+    "materials": { "memo": "", "images": [], "links": [] }
+  },
+  {
+    "id": "t9",
+    "name": "発送ラベル自動化",
+    "zone": "on_hold",
+    "priority": { "impact": 4, "urgency": 3, "ease": 4 },
+    "currentVersion": "",
+    "nextStep": "作成中へ移す前に API キーだけ取得",
+    "markdown": "要件・画面案は固ま済み。着手待ち。",
+    "materials": { "memo": "保留＝もうすぐ作成可", "images": [], "links": [] }
+  },
+  {
+    "id": "t7",
+    "name": "倉庫ラベル印刷",
+    "zone": "planning",
+    "priority": { "impact": 3, "urgency": 2, "ease": 3 },
+    "currentVersion": "",
+    "nextStep": "プリンタ API を調査",
+    "markdown": "リサーチ中。ハード要件が固まってから作成中へ。",
+    "materials": { "memo": "", "images": [], "links": [] }
+  },
+  {
+    "id": "t8",
+    "name": "旧・在庫 Excel マクロ",
+    "zone": "archived",
+    "priority": { "impact": 1, "urgency": 1, "ease": 1 },
+    "currentVersion": "v2.0",
+    "nextStep": "",
+    "markdown": "見送り。新ツールに置き換え。",
+    "materials": { "memo": "", "images": [], "links": [] }
+  }
+]

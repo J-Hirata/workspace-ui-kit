@@ -24,6 +24,11 @@ export type InlineTextareaFieldProps = {
   ariaLabel: string;
   /** 空のときの placeholder。デフォルト "未設定" */
   placeholder?: string;
+  /**
+   * 親が React `key` を付け忘れたときの保険。
+   * ツール切替時に defaultValue が更新されない問題を防ぐ。
+   */
+  instanceKey?: string;
 };
 
 export function InlineTextareaField({
@@ -31,9 +36,11 @@ export function InlineTextareaField({
   onSave,
   ariaLabel,
   placeholder,
+  instanceKey,
 }: InlineTextareaFieldProps) {
   return (
     <Textarea
+      key={instanceKey}
       defaultValue={value}
       placeholder={placeholder ?? "未設定"}
       aria-label={ariaLabel}

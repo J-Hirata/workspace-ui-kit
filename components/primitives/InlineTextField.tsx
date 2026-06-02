@@ -29,6 +29,8 @@ export type InlineTextFieldProps = {
   placeholder?: string;
   /** className override（width 制限などに使う） */
   className?: string;
+  /** ツール切替時の再マウント用（親の key と併用可） */
+  instanceKey?: string;
 };
 
 export function InlineTextField({
@@ -38,9 +40,11 @@ export function InlineTextField({
   inputType = "text",
   placeholder,
   className,
+  instanceKey,
 }: InlineTextFieldProps) {
   return (
     <Input
+      key={instanceKey}
       type={inputType}
       defaultValue={value}
       placeholder={placeholder ?? "未設定"}

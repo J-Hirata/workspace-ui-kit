@@ -1,19 +1,19 @@
 [
   {
     "id": "d-product",
-    "name": "プロダクト開発",
+    "name": "プロダクト開発本部",
     "positions": [
-      { "id": "p-fe", "name": "フロントエンドエンジニア", "count": 4 },
+      { "id": "p-fe", "name": "フロントエンドエンジニア", "count": 8 },
       { "id": "p-be", "name": "バックエンドエンジニア", "count": 3 },
-      { "id": "p-design", "name": "デザイナー", "count": 2 }
+      { "id": "p-design", "name": "プロダクトデザイナー", "count": 2 }
     ]
   },
   {
     "id": "d-biz",
-    "name": "ビジネス",
+    "name": "ビジネス本部",
     "positions": [
       { "id": "p-pm", "name": "プロダクトマネージャー", "count": 3 },
-      { "id": "p-sales", "name": "セールス", "count": 4 }
+      { "id": "p-sales", "name": "セールス（法人向け）", "count": 4 }
     ]
   }
 ]

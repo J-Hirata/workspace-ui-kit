@@ -43,6 +43,7 @@ import {
 import { Pane4Section } from "@/components/workspace/Pane4Section";
 import { AxisScoreRow } from "@/components/workspace/CandidateDashboardPane";
 import { AttachmentList } from "@/components/workspace/AttachmentList";
+import { MaterialLibrarySection } from "@/components/workspace/MaterialLibrarySection";
 
 // ===== Pane 4 内部型（ファイル外には出さない） =====
 
@@ -317,6 +318,8 @@ export function CandidateDetailPane({
                 onUpdateScorecardField={onUpdateScorecardField}
               />
             )}
+            {selectedDetail?.type === "stage" && <Separator />}
+            <MaterialLibrarySection candidateId={selectedCandidateId} />
           </ScrollArea>
         </>
       ) : (

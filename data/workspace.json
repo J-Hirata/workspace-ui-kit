@@ -1,4 +1,5 @@
 {
-  "name": "採用管理",
-  "icon": "briefcase"
+  "name": "プロジェクト管理",
+  "version": "1.0.0",
+  "icon": "folder-kanban"
 }

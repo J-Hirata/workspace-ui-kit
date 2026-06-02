@@ -1,459 +1,244 @@
 "use client";
 
 /**
- * Workspace: 4 ペインの親コンポーネント。
- *
- * - Pane 1〜4 の state（candidates / selectedCandidateId / selectedDetail）を
- *   保持し、各ペインに props として渡す。
- *   `previousDetail` state は ADR-0011 §6 大決定 D で削除した（戻り先が候詳に固定
- *   されたため、直前の詳細を 1 段階覚える概念が不要になった）。
- * - Pane 3 = 候補者ダッシュボード（人物軸の編集: ヘッダー帯 + 採用条件 + 選考フロー）
- * - Pane 4 = ステージ軸の編集（選考ステージ詳細のみ）
- *   ADR-0015 §9 大決定 G により、Pane 4 のデフォルト state は `null`
- *   （ステージ未選択 = 畳み状態）。◀ ボタンは撤廃。
- *
- * レイアウト構造（shadcn/ui Sidebar を採用、ADR-0006 §3/§5 を本実装で改訂）:
- *
- * ```
- * <SidebarProvider> (h-screen, defaultOpen, Cmd+B でトグル)
- * ┌─ Sidebar (Pane 1) ─┬─ SidebarInset ─────────────────────┐
- * │ (画面最上端          │ ┌─ GlobalHeader (h-12) ─────────┐ │
- * │  〜最下端)           │ └─────────────────────────────────┘ │
- * │ collapsible="icon"  │ ┌─ Pane 2 ─┬─ Pane 3 ─┬─ Pane 4 ─┐ │
- * │ 240px ↔ 48px        │ │          │          │          │ │
- * └────────────────────┴─┴──────────┴──────────┴──────────┘
- * ```
- *
- * - Pane 1 のみ画面最上端〜最下端まで届く chrome（折りたたみ可）
- * - GlobalHeader は Pane 1 を除く右側全幅（Pane 2 / Pane 3 / Pane 4 の上）に渡る
- * - Pane 4 はヘッダー直下から最下端まで
- * - Pane 1 折りたたみトグルは Pane 1 ヘッダー右端の `Pane1Toggle` 1 箇所
- *   （ADR-0006 §5 で計画していた GlobalHeader 側の SidebarTrigger は本実装で撤回）
- *
- * 仕様の出典:
- *   - openspec/decision/0006-pane-background-hierarchy-and-shadcn-inset-header.md
- *     §2（4 段階背景色階層）/ §4（保存ステータス削除）はそのまま採用
- *     §3（Pane 4 = 画面最上端〜最下端 / ヘッダーは中央エリアのみ）は本実装で再改訂
- *     §5（SidebarTrigger は GlobalHeader）も本実装で再改訂（Pane 1 ヘッダー側に集約）
- *   - openspec/decision/0009-drilldown-card-affordance.md（Pane 3 ドリルダウンカードの ▶ 規律）
- *   - openspec/changes/add-4pane-workspace-template/specs/workspace-template/spec.md
- *   - openspec/changes/add-4pane-workspace-template/design.md D51〜D56 / D65
+ * ツール PM 用 4 ペインワークスペース（第1版）。
+ * 設計正: four-pane-planning/docs/workspace-ui-wireframe.svg
  */
 
-import { useState, useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
+import {
+  DndContext,
+  DragOverlay,
+  KeyboardSensor,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+  type DragStartEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove,
+  sortableKeyboardCoordinates,
+} from "@dnd-kit/sortable";
 
-import {
-  type Profile,
-  type AxisKey,
-  type StageKey,
-  type Department,
-  type Candidate,
-  type Group,
-  type SelectedDetail,
-  STAGE_ORDER,
-} from "@/lib/schema";
-import {
-  createMinimalProfile,
-  createMinimalScorecard,
-} from "@/lib/data/factories";
-import { getCandidateAverageScore } from "@/lib/computed/scorecards";
-import { ARCHIVED_GROUP_LABEL, STAGE_LABELS } from "@/lib/labels";
+import { type Tool, type ToolRow, type ZoneKey } from "@/lib/pm-schema";
+import { getPriorityTotal } from "@/lib/computed/priority";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
-import { GlobalHeader } from "@/components/workspace/GlobalHeader";
-import { PositionPane } from "@/components/workspace/PositionPane";
-import { CandidateListPane } from "@/components/workspace/CandidateListPane";
-import { CandidateDashboardPane } from "@/components/workspace/CandidateDashboardPane";
-import { CandidateDetailPane } from "@/components/workspace/CandidateDetailPane";
-
-// ========== UI 内部型 ==========
-//
-// 種データは `data/*.json` → Server Component（app/page.tsx）で Zod parse → props で受け取る。
-// ヘルパー関数（createMinimalProfile / createMinimalScorecard）は `lib/data/factories.ts`。
-// Pane 2 の表示用派生型 (CandidateRow / Group) と `SelectedDetail` 型は
-// `lib/schema.ts` に集約（複数ペインで共有するため）。
-// Pane 4 モード 2 用の `EditableScorecardKey` は
-// `components/workspace/CandidateDetailPane.tsx` 内部の閉じた型。
-
-// `updateScorecardField` の field 引数で使う key の union 型。Pane 4 内部の
-// `EditableScorecardKey` と同形。CandidateDetailPane 内部に閉じた型として扱い
-// たいため export せず、親側で同じ形を再宣言して持つ。
-//
-// ADR-0014「shadcn 標準フォームによる Pane 4 編集 UI」で `comment` / `summary`
-// を `InlineTextareaField` で編集対象に追加したため、旧 4 フィールドから 6 フィールド
-// に拡張。CandidateDetailPane.tsx 側の同型宣言（line 70-76）と同期させる。
-// `onUpdateScorecardField` 実装本体は `[field]: value` のスプレッドで
-// 動作するため、ロジックの追加修正は不要。
-type EditableScorecardKey =
-  | "date"
-  | "format"
-  | "interviewer"
-  | "decision"
-  | "comment"
-  | "summary";
+import { ZoneNavPane } from "@/components/workspace/pm/ZoneNavPane";
+import { ToolListPane } from "@/components/workspace/pm/ToolListPane";
+import { ToolDetailPane } from "@/components/workspace/pm/ToolDetailPane";
+import { ToolMaterialsPane } from "@/components/workspace/pm/ToolMaterialsPane";
+import { PmGlobalHeader } from "@/components/workspace/pm/PmGlobalHeader";
 
 type WorkspaceProps = {
-  initialDepartments: Department[];
-  initialCandidates: Candidate[];
-  workspace: { name: string; icon: string };
+  initialTools: Tool[];
+  workspace: { name: string; version: string; icon: string };
 };
 
-export function Workspace({
-  initialDepartments,
-  initialCandidates,
-  workspace,
-}: WorkspaceProps) {
-  const [departments, setDepartments] =
-    useState<Department[]>(initialDepartments);
-  const [candidates, setCandidates] = useState<Candidate[]>(initialCandidates);
-  const [selectedCandidateId, setSelectedCandidateId] = useState<string>("c2");
-  const [selectedDetail, setSelectedDetail] = useState<SelectedDetail>(null);
-  const [scrollAnchor, setScrollAnchor] = useState<string | null>(null);
-  // ユーザーが手動で Pane 4 を畳んだか。ステージ選択は保持しつつ畳む用途。
-  const [pane4ManuallyClosed, setPane4ManuallyClosed] = useState(false);
-  // Pane 3 ヘッダー帯（Collapsible）の開閉。候補者切替で閉じ、新規追加で開く。
-  const [applicationInfoOpen, setApplicationInfoOpen] = useState(false);
+function createMinimalTool(name: string, zone: ZoneKey): Tool {
+  return {
+    id: `t-${Date.now()}`,
+    name,
+    zone,
+    priority: { impact: 3, urgency: 3, ease: 3 },
+    currentVersion: "",
+    nextStep: "",
+    markdown: "",
+    materials: { memo: "", images: [], links: [] },
+  };
+}
 
-  // Pane 4 の展開状態を派生計算（ADR-0015 §9 大決定 G）。
-  // selectedDetail !== null かつ手動で畳んでいない → 開いている。
-  const pane4Open = selectedDetail !== null && !pane4ManuallyClosed;
+export function Workspace({ initialTools, workspace }: WorkspaceProps) {
+  const [tools, setTools] = useState<Tool[]>(initialTools);
+  const [selectedZone, setSelectedZone] = useState<ZoneKey>("creating");
+  const [selectedToolId, setSelectedToolId] = useState<string>(
+    initialTools.find((t) => t.zone === "creating")?.id ??
+      initialTools[0]?.id ??
+      "",
+  );
+  const [activeDragId, setActiveDragId] = useState<string | null>(null);
 
-  // アクティブ候補者を取得。`INITIAL_CANDIDATES` が常に最低 1 名持つ前提だが、
-  // 万一 find が undefined を返す（未来に candidates の削除機能が入った場合等）
-  // ケースに備えて先頭候補者にフォールバックする。
-  const activeCandidate =
-    candidates.find((c) => c.id === selectedCandidateId) ?? candidates[0];
-  const profile = activeCandidate.profile;
-  const scorecards = activeCandidate.scorecards;
-
-  // Mode1ProfileDetail は `setProfile: React.Dispatch<React.SetStateAction<Profile>>`
-  // を期待している（採用案 X）。子コンポーネント側の signature を変えないために、
-  // candidates 配列を更新するアダプタをここで作る。
-  // 関数形 (p => next) と値形 (next) の両方に対応する。
-  const setProfile = useCallback<React.Dispatch<React.SetStateAction<Profile>>>(
-    (action) => {
-      setCandidates((prev) =>
-        prev.map((c) => {
-          if (c.id !== selectedCandidateId) return c;
-          const next =
-            typeof action === "function" ? action(c.profile) : action;
-          return { ...c, profile: next };
-        }),
-      );
-    },
-    [selectedCandidateId],
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
-  const openDetail = useCallback(
-    (next: SelectedDetail, anchor?: string) => {
-      if (next?.type === "stage") {
-        setCandidates((prev) =>
-          prev.map((c) => {
-            if (c.id !== selectedCandidateId) return c;
-            if (c.scorecards.some((s) => s.stage === next.stage)) return c;
-            return {
-              ...c,
-              scorecards: [...c.scorecards, createMinimalScorecard(next.stage)],
-            };
-          }),
-        );
-      }
-      setSelectedDetail(next);
-      setScrollAnchor(anchor ?? null);
-      setPane4ManuallyClosed(false);
-    },
-    [selectedCandidateId],
-  );
-
-  // Pane 2 の候補者行クリックでアクティブ候補者を切り替える。
-  // - selectedDetail が「ステージ詳細」だった場合、新候補者にそのステージの
-  //   scorecard が無ければ Pane 4 を **候補者詳細にフォールバック**する
-  //   （ADR-0011 §7 大決定 E、旧 null フォールバックを撤回）。c2 以外は
-  //   scorecards: [] のため、c2 → 別候補者の切替時はほぼ常に候詳へフォールバック。
-  // - selectedDetail が「候補者詳細」のときは維持してよい（profile はどの候補者にも
-  //   必ず存在する）。
-  // - previousDetail state は ADR-0011 §6 大決定 D で削除済みのため、リセット不要。
-  const selectCandidate = useCallback((id: string) => {
-    setSelectedCandidateId(id);
-    setSelectedDetail(null);
-    setApplicationInfoOpen(false);
-    setPane4ManuallyClosed(false);
-  }, []);
-
-  const addCandidate = useCallback((stage: StageKey, name: string) => {
-    const newId = `c-${Date.now()}`;
-    const newCandidate: Candidate = {
-      id: newId,
-      profile: createMinimalProfile(name),
-      scorecards: [],
-      stage,
-      archived: false,
+  const counts = useMemo(() => {
+    const c: Record<ZoneKey, number> = {
+      creating: 0,
+      operating: 0,
+      on_hold: 0,
+      planning: 0,
+      archived: 0,
     };
-    setCandidates((prev) => [...prev, newCandidate]);
-    setSelectedCandidateId(newId);
-    setSelectedDetail(null);
-    setApplicationInfoOpen(true);
-    setPane4ManuallyClosed(false);
-  }, []);
+    for (const t of tools) c[t.zone]++;
+    return c;
+  }, [tools]);
 
-  // 候補者をアーカイブ（論理削除）する。データは残し `archived: true` を立てる。
-  // 復元は `restoreCandidate` から、もしくは Pane 2「アーカイブ済み」グループの
-  // 「復元」ボタン経由。アクティブ候補者をアーカイブした場合は、非 archived の
-  // 先頭候補者にフォールバックし、ステージ詳細（Pane 4）はクリアする。
-  const archiveCandidate = useCallback((id: string) => {
-    setCandidates((prev) => {
-      const next = prev.map((c) =>
-        c.id === id ? { ...c, archived: true } : c,
-      );
-      setSelectedCandidateId((prevId) => {
-        if (prevId !== id) return prevId;
-        const fallback = next.find((c) => !c.archived);
-        return fallback ? fallback.id : "";
-      });
-      return next;
-    });
-    setSelectedDetail(null);
-    setPane4ManuallyClosed(false);
-  }, []);
-
-  // アーカイブ済み候補者を元のステージに復元する。`stage` は archived 中も保持
-  // しているので、そのステージへ戻すだけでよい。
-  const restoreCandidate = useCallback((id: string) => {
-    setCandidates((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, archived: false } : c)),
-    );
-  }, []);
-
-  // 候補者を別ステージへ移動 / 同ステージ内で並び替え。
-  //
-  // `toStage` は移動先のステージキー。`toIndex` はそのステージグループ内での
-  // 0-origin の挿入位置。配列順を SSoT としているため、candidates 配列上の
-  // 絶対インデックスに変換して `splice` 相当の挿入を行う。
-  //
-  // 同ステージ内ドラッグ・別ステージへのドラッグの両方をこの 1 関数で扱う。
-  // archived 候補者は対象外（DnD はアクティブな候補者のみ可能）。
-  const moveCandidate = useCallback(
-    (id: string, toStage: StageKey, toIndex: number) => {
-      setCandidates((prev) => {
-        const subjectIndex = prev.findIndex((c) => c.id === id);
-        if (subjectIndex < 0) return prev;
-        const subject = prev[subjectIndex];
-        if (subject.archived) return prev;
-
-        const without = prev.filter((_, i) => i !== subjectIndex);
-        const updated: Candidate = { ...subject, stage: toStage };
-
-        let count = 0;
-        let absInsertAt = without.length;
-        for (let i = 0; i < without.length; i++) {
-          const c = without[i];
-          if (!c.archived && c.stage === toStage) {
-            if (count === toIndex) {
-              absInsertAt = i;
-              break;
-            }
-            count++;
-          }
-        }
-        return [
-          ...without.slice(0, absInsertAt),
-          updated,
-          ...without.slice(absInsertAt),
-        ];
-      });
-    },
-    [],
-  );
-
-  const addDepartment = useCallback((name: string) => {
-    setDepartments((prev) => [
-      ...prev,
-      { id: `d-${Date.now()}`, name, positions: [] },
-    ]);
-  }, []);
-
-  const deleteDepartment = useCallback((deptId: string) => {
-    setDepartments((prev) => prev.filter((d) => d.id !== deptId));
-  }, []);
-
-  const addPosition = useCallback((deptId: string, posName: string) => {
-    setDepartments((prev) =>
-      prev.map((d) =>
-        d.id === deptId
-          ? {
-              ...d,
-              positions: [
-                ...d.positions,
-                { id: `p-${Date.now()}`, name: posName, count: 0 },
-              ],
-            }
-          : d,
-      ),
-    );
-  }, []);
-
-  const deletePosition = useCallback((deptId: string, posId: string) => {
-    setDepartments((prev) =>
-      prev.map((d) =>
-        d.id === deptId
-          ? { ...d, positions: d.positions.filter((p) => p.id !== posId) }
-          : d,
-      ),
-    );
-  }, []);
-
-  // 評価観点 ★ の編集ハンドラ。フェーズ 3A から「アクティブ候補者」の
-  // scorecards を更新する形に変更（candidates 配列の中の該当候補者だけを差し替え）。
-  const updateAxisScore = useCallback(
-    (stage: StageKey, axis: AxisKey, value: number | null) => {
-      setCandidates((prev) =>
-        prev.map((c) =>
-          c.id === selectedCandidateId
-            ? {
-                ...c,
-                scorecards: c.scorecards.map((s) =>
-                  s.stage === stage
-                    ? { ...s, axisScores: { ...s.axisScores, [axis]: value } }
-                    : s,
-                ),
-              }
-            : c,
-        ),
-      );
-    },
-    [selectedCandidateId],
-  );
-
-  // Pane 4 モード 2「メタ情報」の inline edit から呼ばれる。
-  // `decision` だけ undefined を許すため、空文字は undefined として扱う
-  // （`MetaRow` 廃止前の "未判定" 表示の代替: `EditableFieldRow` 側で空 = "未設定"）。
-  // フェーズ 3A: アクティブ候補者の scorecards を更新する形に変更。
-  const updateScorecardField = useCallback(
-    (stage: StageKey, field: EditableScorecardKey, value: string) => {
-      setCandidates((prev) =>
-        prev.map((c) =>
-          c.id === selectedCandidateId
-            ? {
-                ...c,
-                scorecards: c.scorecards.map((s) => {
-                  if (s.stage !== stage) return s;
-                  if (field === "decision") {
-                    const trimmed = value.trim();
-                    return {
-                      ...s,
-                      decision: trimmed === "" ? undefined : trimmed,
-                    };
-                  }
-                  return { ...s, [field]: value };
-                }),
-              }
-            : c,
-        ),
-      );
-    },
-    [selectedCandidateId],
-  );
-
-  // Pane 4 内の `useEffect` 依存安定化のため、Workspace 側でメモ化して props で渡す。
-  const consumeScrollAnchor = useCallback(() => setScrollAnchor(null), []);
-  const togglePane4 = useCallback(() => setPane4ManuallyClosed((v) => !v), []);
-
-  const positionTitle = "フロントエンドエンジニア";
-  const departmentTitle = "プロダクト開発";
-
-  const candidateGroups: Group[] = useMemo(() => {
-    // ステージグループは常に 4 段階すべて表示する。空ステージも残すことで、
-    // 「最後の 1 名を別ステージへ動かしたら戻し先が消える」事故を防ぐ
-    // （ADR-006 §2-2 の補足）。
-    const stageGroups: Group[] = STAGE_ORDER.map((stage) => ({
-      kind: "stage" as const,
-      stage,
-      label: STAGE_LABELS[stage],
-      items: candidates
-        .filter((c) => !c.archived && c.stage === stage)
-        .map((c) => ({
-          id: c.id,
-          name: c.profile.name,
-          averageScore: getCandidateAverageScore(c),
+  const zoneTools: ToolRow[] = useMemo(
+    () =>
+      tools
+        .filter((t) => t.zone === selectedZone)
+        .map((t) => ({
+          id: t.id,
+          name: t.name,
+          priorityTotal: getPriorityTotal(t.priority),
         })),
-    }));
+    [tools, selectedZone],
+  );
 
-    const archivedItems = candidates
-      .filter((c) => c.archived)
-      .map((c) => ({
-        id: c.id,
-        name: c.profile.name,
-        averageScore: getCandidateAverageScore(c),
-      }));
+  const activeTool =
+    tools.find((t) => t.id === selectedToolId) ??
+    tools.find((t) => t.zone === selectedZone) ??
+    tools[0];
 
-    if (archivedItems.length === 0) return stageGroups;
-    return [
-      ...stageGroups,
-      { kind: "archived" as const, label: ARCHIVED_GROUP_LABEL, items: archivedItems },
-    ];
-  }, [candidates]);
+  const updateTool = useCallback((id: string, patch: Partial<Tool>) => {
+    setTools((prev) =>
+      prev.map((t) => (t.id === id ? { ...t, ...patch } : t)),
+    );
+  }, []);
+
+  const selectZone = useCallback(
+    (zone: ZoneKey) => {
+      setSelectedZone(zone);
+      setSelectedToolId((prev) => {
+        const current = tools.find((t) => t.id === prev);
+        if (current?.zone === zone) return prev;
+        return tools.find((t) => t.zone === zone)?.id ?? prev;
+      });
+    },
+    [tools],
+  );
+
+  const moveToolToZone = useCallback((id: string, zone: ZoneKey) => {
+    setTools((prev) =>
+      prev.map((t) => (t.id === id ? { ...t, zone } : t)),
+    );
+    setSelectedZone(zone);
+    setSelectedToolId(id);
+  }, []);
+
+  const addTool = useCallback(
+    (name: string) => {
+      const tool = createMinimalTool(name, selectedZone);
+      setTools((prev) => [...prev, tool]);
+      setSelectedToolId(tool.id);
+    },
+    [selectedZone],
+  );
+
+  const handleDragStart = useCallback((event: DragStartEvent) => {
+    setActiveDragId(String(event.active.id));
+  }, []);
+
+  const handleDragEnd = useCallback(
+    (event: DragEndEvent) => {
+      setActiveDragId(null);
+      const { active, over } = event;
+      if (!over) return;
+
+      const toolId = String(active.id);
+      const overId = String(over.id);
+
+      if (overId.startsWith("zone:")) {
+        const zone = overId.replace("zone:", "") as ZoneKey;
+        moveToolToZone(toolId, zone);
+        return;
+      }
+
+      const zoneToolIds = tools
+        .filter((t) => t.zone === selectedZone)
+        .map((t) => t.id);
+      const oldIndex = zoneToolIds.indexOf(toolId);
+      const newIndex = zoneToolIds.indexOf(overId);
+      if (oldIndex < 0 || newIndex < 0 || oldIndex === newIndex) return;
+
+      const reordered = arrayMove(zoneToolIds, oldIndex, newIndex);
+      setTools((prev) => {
+        const others = prev.filter((t) => t.zone !== selectedZone);
+        const inZone = reordered
+          .map((id) => prev.find((t) => t.id === id))
+          .filter((t): t is Tool => !!t);
+        return [...others, ...inZone];
+      });
+    },
+    [moveToolToZone, selectedZone, tools],
+  );
+
+  const activeDragTool = activeDragId
+    ? tools.find((t) => t.id === activeDragId)
+    : null;
+
+  if (!activeTool) {
+    return (
+      <div className="flex h-screen items-center justify-center text-sm text-muted-foreground">
+        ツールデータがありません。data/tools.json を確認してください。
+      </div>
+    );
+  }
 
   return (
-    // shadcn/ui の SidebarProvider が外側を取り、Pane 1 (`<Sidebar>`) を全高で固定
-    // 表示する。SidebarInset が右側ブロック（GlobalHeader + Pane 2/3/4）を担う。
-    // Cmd+B のキーバインドは SidebarProvider 側で標準実装されている。
-    // SidebarProvider のラッパー div は既定 `min-h-svh w-full`。雛形では
-    // ビューポート高に固定したいので h-screen を併記し、ペイン内で min-h-0 が
-    // 効くようにする（既存 ScrollArea の挙動と整合）。
-    <SidebarProvider
-      defaultOpen
-      className="h-screen w-full overflow-hidden bg-background text-foreground"
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCenter}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
     >
-      <PositionPane
-        workspaceName={workspace.name}
-        departments={departments}
-        selectedPositionName={positionTitle}
-        onAddPosition={addPosition}
-        onDeletePosition={deletePosition}
-      />
-      <SidebarInset className="flex min-w-0 flex-col bg-background">
-        <GlobalHeader
-          departmentTitle={departmentTitle}
-          positionTitle={positionTitle}
-          candidateName={profile.name}
-          departments={departments}
-          onAddDepartment={addDepartment}
-          onDeleteDepartment={deleteDepartment}
+      <SidebarProvider
+        defaultOpen
+        className="h-screen w-full overflow-hidden bg-background text-foreground"
+      >
+        <ZoneNavPane
+          workspaceName={workspace.name}
+          workspaceVersion={workspace.version}
+          selectedZone={selectedZone}
+          counts={counts}
+          onSelectZone={selectZone}
         />
-        {/* SidebarInset 自体が <main> を出すので、内側は <div> で組み、
-            Pane 2 / Pane 3 / Pane 4 を横並びにする。 */}
-        <div className="flex min-h-0 flex-1">
-          <CandidateListPane
-            groups={candidateGroups}
-            selectedCandidateId={selectedCandidateId}
-            onSelectCandidate={selectCandidate}
-            onAddCandidate={addCandidate}
-            onArchiveCandidate={archiveCandidate}
-            onRestoreCandidate={restoreCandidate}
-            onMoveCandidate={moveCandidate}
-          />
-          <CandidateDashboardPane
-            profile={profile}
-            scorecards={scorecards}
-            selectedDetail={selectedDetail}
-            onOpenDetail={openDetail}
-            setProfile={setProfile}
-            applicationInfoOpen={applicationInfoOpen}
-            onApplicationInfoOpenChange={setApplicationInfoOpen}
-            selectedCandidateId={selectedCandidateId}
-          />
-          <CandidateDetailPane
-            selectedCandidateId={selectedCandidateId}
-            scorecards={scorecards}
-            selectedDetail={selectedDetail}
-            scrollAnchor={scrollAnchor}
-            onScrollAnchorConsumed={consumeScrollAnchor}
-            onUpdateAxis={updateAxisScore}
-            onUpdateScorecardField={updateScorecardField}
-            pane4Open={pane4Open}
-            onTogglePane4={togglePane4}
-          />
-        </div>
-      </SidebarInset>
-    </SidebarProvider>
+        <SidebarInset className="flex min-w-0 flex-col bg-background">
+          <PmGlobalHeader zone={selectedZone} toolName={activeTool.name} />
+          <div className="flex min-h-0 flex-1 overflow-hidden">
+            <ToolListPane
+              zone={selectedZone}
+              tools={zoneTools}
+              selectedToolId={selectedToolId}
+              onSelectTool={setSelectedToolId}
+              onAddTool={addTool}
+              onMoveToolToZone={moveToolToZone}
+            />
+            <div className="min-w-0 flex-1 overflow-hidden">
+              <ToolDetailPane
+                tool={activeTool}
+                onUpdatePriority={(axis, value) =>
+                  updateTool(activeTool.id, {
+                    priority: { ...activeTool.priority, [axis]: value },
+                  })
+                }
+                onUpdateField={(field, value) =>
+                  updateTool(activeTool.id, { [field]: value })
+                }
+              />
+            </div>
+            <ToolMaterialsPane
+              toolId={activeTool.id}
+              materials={activeTool.materials}
+              onUpdateMaterials={(patch) =>
+                updateTool(activeTool.id, {
+                  materials: { ...activeTool.materials, ...patch },
+                })
+              }
+            />
+          </div>
+        </SidebarInset>
+      </SidebarProvider>
+      <DragOverlay>
+        {activeDragTool ? (
+          <div className="rounded-md border bg-background px-3 py-2 text-sm shadow-lg">
+            {activeDragTool.name}
+          </div>
+        ) : null}
+      </DragOverlay>
+    </DndContext>
   );
 }
