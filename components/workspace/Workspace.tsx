@@ -22,7 +22,12 @@ import {
   sortableKeyboardCoordinates,
 } from "@dnd-kit/sortable";
 
-import { type Tool, type ToolRow, type ZoneKey } from "@/lib/pm-schema";
+import {
+  type Task,
+  type Tool,
+  type ToolRow,
+  type ZoneKey,
+} from "@/lib/pm-schema";
 import { getPriorityTotal } from "@/lib/computed/priority";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { ZoneNavPane } from "@/components/workspace/pm/ZoneNavPane";
@@ -36,16 +41,26 @@ type WorkspaceProps = {
   workspace: { name: string; version: string; icon: string };
 };
 
+/** 新規ツールはタスク予定3行（空）で開始する */
+function createEmptyTasks(toolId: string): Task[] {
+  return [1, 2, 3].map((n) => ({
+    id: `${toolId}-task${n}`,
+    text: "",
+    done: false,
+  }));
+}
+
 function createMinimalTool(name: string, zone: ZoneKey): Tool {
+  const id = `t-${Date.now()}`;
   return {
-    id: `t-${Date.now()}`,
+    id,
     name,
     zone,
     priority: { impact: 3, urgency: 3, ease: 3 },
     currentVersion: "",
-    nextStep: "",
+    tasks: createEmptyTasks(id),
     markdown: "",
-    materials: { memo: "", images: [], links: [] },
+    materials: { memo: "", attachments: [], links: [] },
   };
 }
 
@@ -218,6 +233,7 @@ export function Workspace({ initialTools, workspace }: WorkspaceProps) {
                 onUpdateField={(field, value) =>
                   updateTool(activeTool.id, { [field]: value })
                 }
+                onUpdateTasks={(tasks) => updateTool(activeTool.id, { tasks })}
               />
             </div>
             <ToolMaterialsPane

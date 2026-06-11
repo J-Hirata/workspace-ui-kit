@@ -23,15 +23,30 @@ export const prioritySchema = z.object({
 });
 export type Priority = z.infer<typeof prioritySchema>;
 
+/** タスク予定の1行。done=true で「完了済みタスク」へ移動する */
+export const taskSchema = z.object({
+  id: z.string(),
+  text: z.string(),
+  done: z.boolean(),
+});
+export type Task = z.infer<typeof taskSchema>;
+
+/**
+ * P4 の添付（画像 / PDF）。
+ * dataUrl は実データ（base64）。旧シードデータ等、実データの無い添付は
+ * dataUrl 無しのプレースホルダとして名前だけ表示する。
+ */
+export const pmAttachmentSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  mimeType: z.string(),
+  dataUrl: z.string().optional(),
+});
+export type PmAttachment = z.infer<typeof pmAttachmentSchema>;
+
 export const materialsSchema = z.object({
   memo: z.string(),
-  images: z.array(
-    z.object({
-      id: z.string(),
-      name: z.string(),
-      url: z.string().optional(),
-    }),
-  ),
+  attachments: z.array(pmAttachmentSchema),
   links: z.array(z.string()),
 });
 export type Materials = z.infer<typeof materialsSchema>;
@@ -42,7 +57,7 @@ export const toolSchema = z.object({
   zone: zoneKeySchema,
   priority: prioritySchema,
   currentVersion: z.string(),
-  nextStep: z.string(),
+  tasks: z.array(taskSchema),
   markdown: z.string(),
   materials: materialsSchema,
 });

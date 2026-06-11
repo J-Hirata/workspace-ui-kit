@@ -5,13 +5,17 @@
     "zone": "creating",
     "priority": { "impact": 5, "urgency": 5, "ease": 3 },
     "currentVersion": "v0.1",
-    "nextStep": "CSV 出力だけ先に実装",
+    "tasks": [
+      { "id": "t1-task1", "text": "CSV 出力だけ先に実装", "done": false },
+      { "id": "t1-task2", "text": "", "done": false },
+      { "id": "t1-task3", "text": "", "done": false }
+    ],
     "markdown": "## 目的\n社内の在庫をスプレッドシートから脱却し、入出庫を1画面で追えるようにする。\n\n## 仕様メモ\n- 品目マスタは JSON シードで開始\n- エクスポートは CSV のみ（v1）",
     "materials": {
       "memo": "ワイヤー確定済み。four-pane-planning を正とする。",
-      "images": [
-        { "id": "img1", "name": "画面案.png" },
-        { "id": "img2", "name": "フロー図.png" }
+      "attachments": [
+        { "id": "img1", "name": "画面案.png", "mimeType": "image/png" },
+        { "id": "img2", "name": "フロー図.png", "mimeType": "image/png" }
       ],
       "links": [
         "https://github.com/J-Hirata/four-pane-planning",
@@ -25,11 +29,15 @@
     "zone": "creating",
     "priority": { "impact": 4, "urgency": 3, "ease": 4 },
     "currentVersion": "v0.0",
-    "nextStep": "優先度の星を P3 で確定してから着手",
+    "tasks": [
+      { "id": "t2-task1", "text": "優先度の星を P3 で確定してから着手", "done": false },
+      { "id": "t2-task2", "text": "", "done": false },
+      { "id": "t2-task3", "text": "", "done": false }
+    ],
     "markdown": "学習用プランのたたき台。Cursor / 4ペイン UI の課題と連動。",
     "materials": {
       "memo": "",
-      "images": [],
+      "attachments": [],
       "links": []
     }
   },
@@ -39,11 +47,15 @@
     "zone": "creating",
     "priority": { "impact": 3, "urgency": 2, "ease": 4 },
     "currentVersion": "v0.1",
-    "nextStep": "Markdown インポートのパーサを試す",
+    "tasks": [
+      { "id": "t3-task1", "text": "Markdown インポートのパーサを試す", "done": false },
+      { "id": "t3-task2", "text": "", "done": false },
+      { "id": "t3-task3", "text": "", "done": false }
+    ],
     "markdown": "",
     "materials": {
       "memo": "Notion からのコピペを想定",
-      "images": [],
+      "attachments": [],
       "links": []
     }
   },
@@ -53,9 +65,13 @@
     "zone": "creating",
     "priority": { "impact": 2, "urgency": 2, "ease": 5 },
     "currentVersion": "v0.2",
-    "nextStep": "チェック項目のテンプレ化",
+    "tasks": [
+      { "id": "t4-task1", "text": "チェック項目のテンプレ化", "done": false },
+      { "id": "t4-task2", "text": "", "done": false },
+      { "id": "t4-task3", "text": "", "done": false }
+    ],
     "markdown": "",
-    "materials": { "memo": "", "images": [], "links": [] }
+    "materials": { "memo": "", "attachments": [], "links": [] }
   },
   {
     "id": "t5",
@@ -63,11 +79,15 @@
     "zone": "operating",
     "priority": { "impact": 3, "urgency": 2, "ease": 3 },
     "currentVersion": "v1.0",
-    "nextStep": "PM 用に差し替え完了後はアーカイブ候補",
+    "tasks": [
+      { "id": "t5-task1", "text": "PM 用に差し替え完了後はアーカイブ候補", "done": false },
+      { "id": "t5-task2", "text": "", "done": false },
+      { "id": "t5-task3", "text": "", "done": false }
+    ],
     "markdown": "workspace-ui-kit の元サンプル。参考用に残す。",
     "materials": {
       "memo": "IndexedDB フォルダデモは v1 必須外",
-      "images": [],
+      "attachments": [],
       "links": ["https://github.com/J-Hirata/workspace-ui-kit"]
     }
   },
@@ -77,9 +97,13 @@
     "zone": "operating",
     "priority": { "impact": 2, "urgency": 1, "ease": 2 },
     "currentVersion": "v0.3",
-    "nextStep": "税務は v1 外のため保留メモのみ",
+    "tasks": [
+      { "id": "t6-task1", "text": "税務は v1 外のため保留メモのみ", "done": false },
+      { "id": "t6-task2", "text": "", "done": false },
+      { "id": "t6-task3", "text": "", "done": false }
+    ],
     "markdown": "",
-    "materials": { "memo": "", "images": [], "links": [] }
+    "materials": { "memo": "", "attachments": [], "links": [] }
   },
   {
     "id": "t9",
@@ -87,9 +111,13 @@
     "zone": "on_hold",
     "priority": { "impact": 4, "urgency": 3, "ease": 4 },
     "currentVersion": "",
-    "nextStep": "作成中へ移す前に API キーだけ取得",
+    "tasks": [
+      { "id": "t9-task1", "text": "作成中へ移す前に API キーだけ取得", "done": false },
+      { "id": "t9-task2", "text": "", "done": false },
+      { "id": "t9-task3", "text": "", "done": false }
+    ],
     "markdown": "要件・画面案は固ま済み。着手待ち。",
-    "materials": { "memo": "保留＝もうすぐ作成可", "images": [], "links": [] }
+    "materials": { "memo": "保留＝もうすぐ作成可", "attachments": [], "links": [] }
   },
   {
     "id": "t7",
@@ -97,9 +125,13 @@
     "zone": "planning",
     "priority": { "impact": 3, "urgency": 2, "ease": 3 },
     "currentVersion": "",
-    "nextStep": "プリンタ API を調査",
+    "tasks": [
+      { "id": "t7-task1", "text": "プリンタ API を調査", "done": false },
+      { "id": "t7-task2", "text": "", "done": false },
+      { "id": "t7-task3", "text": "", "done": false }
+    ],
     "markdown": "リサーチ中。ハード要件が固まってから作成中へ。",
-    "materials": { "memo": "", "images": [], "links": [] }
+    "materials": { "memo": "", "attachments": [], "links": [] }
   },
   {
     "id": "t8",
@@ -107,8 +139,12 @@
     "zone": "archived",
     "priority": { "impact": 1, "urgency": 1, "ease": 1 },
     "currentVersion": "v2.0",
-    "nextStep": "",
+    "tasks": [
+      { "id": "t8-task1", "text": "", "done": false },
+      { "id": "t8-task2", "text": "", "done": false },
+      { "id": "t8-task3", "text": "", "done": false }
+    ],
     "markdown": "見送り。新ツールに置き換え。",
-    "materials": { "memo": "", "images": [], "links": [] }
+    "materials": { "memo": "", "attachments": [], "links": [] }
   }
 ]

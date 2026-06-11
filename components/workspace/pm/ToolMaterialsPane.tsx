@@ -3,6 +3,7 @@
 import { type Materials } from "@/lib/pm-schema";
 import { Pane4Section } from "@/components/workspace/Pane4Section";
 import { InlineTextareaField } from "@/components/primitives";
+import { AttachmentSection } from "@/components/workspace/pm/AttachmentSection";
 
 type ToolMaterialsPaneProps = {
   toolId: string;
@@ -19,7 +20,7 @@ export function ToolMaterialsPane({
 
   return (
     <aside
-      className="h-full w-64 shrink-0 overflow-x-hidden overflow-y-auto border-l border-border bg-muted/20"
+      className="h-full w-96 shrink-0 overflow-x-hidden overflow-y-auto border-l border-border bg-muted/20"
       aria-label="素材"
     >
       <Pane4Section title="補足メモ">
@@ -32,22 +33,12 @@ export function ToolMaterialsPane({
         />
       </Pane4Section>
 
-      <Pane4Section title="画像（複数）">
-        {materials.images.length === 0 ? (
-          <p className="text-xs text-muted-foreground">画像なし</p>
-        ) : (
-          <div className="flex flex-wrap gap-2">
-            {materials.images.map((img) => (
-              <div
-                key={img.id}
-                className="flex h-10 w-14 items-center justify-center rounded border border-border bg-muted px-1 text-center text-[9px] text-muted-foreground"
-                title={img.name}
-              >
-                {img.name.slice(0, 6)}
-              </div>
-            ))}
-          </div>
-        )}
+      <Pane4Section title="画像・PDF（複数）">
+        <AttachmentSection
+          key={`${toolId}-attachments`}
+          attachments={materials.attachments}
+          onChange={(attachments) => onUpdateMaterials({ attachments })}
+        />
       </Pane4Section>
 
       <Pane4Section title="リンク（複数行・Git含む）">
