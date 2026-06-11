@@ -12,7 +12,7 @@
  * リロードで消えるのは既知の制限で、永続化は次回課題）。
  */
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { FileText, ImagePlus, X } from "lucide-react";
 
 import { type PmAttachment } from "@/lib/pm-schema";
@@ -66,6 +66,10 @@ export function AttachmentSection({
   const [dragging, setDragging] = useState(false);
   const [preview, setPreview] = useState<PmAttachment | null>(null);
 
+  // 最新の attachments / onChange を参照するための ref（document リスナー用）
+  const stateRef = useRef({ attachments, onChange });
+  stateRef.current = { attachments, onChange };
+
   const addFiles = async (files: File[]) => {
     const accepted = files.filter(isAccepted);
     if (accepted.length === 0) return;
@@ -78,8 +82,28 @@ export function AttachmentSection({
         dataUrl: await readAsDataUrl(file),
       })),
     );
-    onChange([...attachments, ...added]);
+    const current = stateRef.current;
+    current.onChange([...current.attachments, ...added]);
   };
+
+  // スクリーンショット等のクリップボード画像を「画面のどこでも Ctrl+V」で
+  // 受け取る。div の onPaste はフォーカス状況によって発火しないことがある
+  // ため、document レベルで拾う。入力欄（input / textarea）への通常の
+  // 貼り付けは邪魔しない。
+  useEffect(() => {
+    const handlePaste = (e: ClipboardEvent) => {
+      const files = Array.from(e.clipboardData?.files ?? []);
+      if (files.length === 0) return;
+      const target = e.target as HTMLElement | null;
+      if (target?.closest("input, textarea, [contenteditable=true]")) return;
+      e.preventDefault();
+      void addFiles(files);
+    };
+    document.addEventListener("paste", handlePaste);
+    return () => document.removeEventListener("paste", handlePaste);
+    // addFiles は stateRef 経由で常に最新を参照するため依存不要
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const removeAttachment = (id: string) => {
     onChange(attachments.filter((a) => a.id !== id));
@@ -131,7 +155,8 @@ export function AttachmentSection({
         <p className="text-[11px] leading-relaxed text-muted-foreground">
           クリックで選択 / ドラッグ&ドロップ
           <br />
-          クリック後 <span className="font-bold">Ctrl+V</span> で貼り付け
+          スクショは <span className="font-bold">Ctrl+V</span>{" "}
+          で貼り付け（画面のどこでも可）
         </p>
         <p className="text-[10px] text-muted-foreground/70">
           JPEG・PNG・GIF・WebP・PDF
