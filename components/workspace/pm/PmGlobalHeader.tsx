@@ -7,14 +7,29 @@ import { type ZoneKey } from "@/lib/pm-schema";
 import { ZONE_LABELS } from "@/lib/pm-labels";
 import { getZoneTheme } from "@/lib/zone-theme";
 
+type SaveStatus = "idle" | "saving" | "saved" | "error";
+
 type PmGlobalHeaderProps = {
   zone: ZoneKey;
   toolName: string;
+  saveStatus?: SaveStatus;
 };
 
-export function PmGlobalHeader({ zone, toolName }: PmGlobalHeaderProps) {
+const SAVE_LABELS: Record<SaveStatus, string> = {
+  idle: "",
+  saving: "保存中…",
+  saved: "保存済み",
+  error: "保存失敗",
+};
+
+export function PmGlobalHeader({
+  zone,
+  toolName,
+  saveStatus = "idle",
+}: PmGlobalHeaderProps) {
   const theme = getZoneTheme(zone);
   const zoneLabel = ZONE_LABELS[zone];
+  const saveLabel = SAVE_LABELS[saveStatus];
 
   return (
     <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border bg-background px-4">
@@ -38,6 +53,18 @@ export function PmGlobalHeader({ zone, toolName }: PmGlobalHeaderProps) {
           {toolName}
         </span>
       </nav>
+      {saveLabel && (
+        <span
+          className={cn(
+            "shrink-0 text-xs",
+            saveStatus === "error"
+              ? "text-destructive"
+              : "text-muted-foreground",
+          )}
+        >
+          {saveLabel}
+        </span>
+      )}
     </header>
   );
 }

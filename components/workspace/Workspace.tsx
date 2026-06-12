@@ -5,7 +5,7 @@
  * 設計正: four-pane-planning/docs/workspace-ui-wireframe.svg
  */
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -41,6 +41,8 @@ type WorkspaceProps = {
   workspace: { name: string; version: string; icon: string };
 };
 
+type SaveStatus = "idle" | "saving" | "saved" | "error";
+
 /** 新規ツールはタスク予定3行（空）で開始する */
 function createEmptyTasks(toolId: string): Task[] {
   return [1, 2, 3].map((n) => ({
@@ -64,6 +66,18 @@ function createMinimalTool(name: string, zone: ZoneKey): Tool {
   };
 }
 
+/** 1件の Tool を API に PUT する */
+async function saveTool(tool: Tool): Promise<void> {
+  const res = await fetch("/api/tools", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ tool }),
+  });
+  if (!res.ok) {
+    throw new Error(`保存失敗: ${res.status}`);
+  }
+}
+
 export function Workspace({ initialTools, workspace }: WorkspaceProps) {
   const [tools, setTools] = useState<Tool[]>(initialTools);
   const [selectedZone, setSelectedZone] = useState<ZoneKey>("creating");
@@ -73,6 +87,41 @@ export function Workspace({ initialTools, workspace }: WorkspaceProps) {
       "",
   );
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
+
+  // debounce 用: 変更された Tool ID を保持し、500ms 後に保存
+  const pendingSaveRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(
+    new Map(),
+  );
+  const toolsRef = useRef(tools);
+  toolsRef.current = tools;
+
+  const scheduleSave = useCallback((toolId: string) => {
+    const prev = pendingSaveRef.current.get(toolId);
+    if (prev) clearTimeout(prev);
+    const timer = setTimeout(async () => {
+      pendingSaveRef.current.delete(toolId);
+      const tool = toolsRef.current.find((t) => t.id === toolId);
+      if (!tool) return;
+      setSaveStatus("saving");
+      try {
+        await saveTool(tool);
+        setSaveStatus("saved");
+        setTimeout(() => setSaveStatus("idle"), 2000);
+      } catch {
+        setSaveStatus("error");
+      }
+    }, 500);
+    pendingSaveRef.current.set(toolId, timer);
+  }, []);
+
+  // アンマウント時にタイマーをクリア
+  useEffect(() => {
+    const map = pendingSaveRef.current;
+    return () => {
+      for (const t of map.values()) clearTimeout(t);
+    };
+  }, []);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -108,11 +157,15 @@ export function Workspace({ initialTools, workspace }: WorkspaceProps) {
     tools.find((t) => t.zone === selectedZone) ??
     tools[0];
 
-  const updateTool = useCallback((id: string, patch: Partial<Tool>) => {
-    setTools((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, ...patch } : t)),
-    );
-  }, []);
+  const updateTool = useCallback(
+    (id: string, patch: Partial<Tool>) => {
+      setTools((prev) =>
+        prev.map((t) => (t.id === id ? { ...t, ...patch } : t)),
+      );
+      scheduleSave(id);
+    },
+    [scheduleSave],
+  );
 
   const selectZone = useCallback(
     (zone: ZoneKey) => {
@@ -126,21 +179,26 @@ export function Workspace({ initialTools, workspace }: WorkspaceProps) {
     [tools],
   );
 
-  const moveToolToZone = useCallback((id: string, zone: ZoneKey) => {
-    setTools((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, zone } : t)),
-    );
-    setSelectedZone(zone);
-    setSelectedToolId(id);
-  }, []);
+  const moveToolToZone = useCallback(
+    (id: string, zone: ZoneKey) => {
+      setTools((prev) =>
+        prev.map((t) => (t.id === id ? { ...t, zone } : t)),
+      );
+      setSelectedZone(zone);
+      setSelectedToolId(id);
+      scheduleSave(id);
+    },
+    [scheduleSave],
+  );
 
   const addTool = useCallback(
     (name: string) => {
       const tool = createMinimalTool(name, selectedZone);
       setTools((prev) => [...prev, tool]);
       setSelectedToolId(tool.id);
+      scheduleSave(tool.id);
     },
-    [selectedZone],
+    [selectedZone, scheduleSave],
   );
 
   const handleDragStart = useCallback((event: DragStartEvent) => {
@@ -177,6 +235,7 @@ export function Workspace({ initialTools, workspace }: WorkspaceProps) {
           .filter((t): t is Tool => !!t);
         return [...others, ...inZone];
       });
+      // 並べ替えは DB 側の sort_order に影響しないため保存不要
     },
     [moveToolToZone, selectedZone, tools],
   );
@@ -212,7 +271,11 @@ export function Workspace({ initialTools, workspace }: WorkspaceProps) {
           onSelectZone={selectZone}
         />
         <SidebarInset className="flex min-w-0 flex-col bg-background">
-          <PmGlobalHeader zone={selectedZone} toolName={activeTool.name} />
+          <PmGlobalHeader
+            zone={selectedZone}
+            toolName={activeTool.name}
+            saveStatus={saveStatus}
+          />
           <div className="flex min-h-0 flex-1 overflow-hidden">
             <ToolListPane
               zone={selectedZone}
