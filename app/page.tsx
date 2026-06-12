@@ -4,6 +4,9 @@ import workspaceData from "@/data/workspace.json";
 import toolsData from "@/data/tools.json";
 import { toolsSchema, workspaceSchema } from "@/lib/pm-schema";
 
+// DB から毎回読み込むため静的生成を無効化する
+export const dynamic = "force-dynamic";
+
 export default async function Page() {
   const wsResult = workspaceSchema.safeParse(workspaceData);
   if (!wsResult.success) {
