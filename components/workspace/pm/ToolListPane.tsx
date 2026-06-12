@@ -13,10 +13,9 @@ import { ZONE_LABELS } from "@/lib/pm-labels";
 import { getZoneTheme } from "@/lib/zone-theme";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-  DropdownMenuItem,
-} from "@/components/ui/dropdown-menu";
+import { DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { AddItemDialog } from "@/components/workspace/AddItemDialog";
+import { DeleteConfirmDialog } from "@/components/workspace/DeleteConfirmDialog";
 import { SortableToolRow } from "@/components/workspace/pm/SortableToolRow";
 
 type ToolListPaneProps = {
@@ -26,6 +25,7 @@ type ToolListPaneProps = {
   onSelectTool: (id: string) => void;
   onAddTool: (name: string) => void;
   onMoveToolToZone: (id: string, zone: ZoneKey) => void;
+  onDeleteTool: (id: string) => void;
 };
 
 export function ToolListPane({
@@ -35,9 +35,11 @@ export function ToolListPane({
   onSelectTool,
   onAddTool,
   onMoveToolToZone,
+  onDeleteTool,
 }: ToolListPaneProps) {
   const [search, setSearch] = useState("");
   const [addOpen, setAddOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<ToolRow | null>(null);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -106,6 +108,13 @@ export function ToolListPane({
                           {ZONE_LABELS[z]}へ移動
                         </DropdownMenuItem>
                       ))}
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        onClick={() => setDeleteTarget(tool)}
+                        className="text-destructive focus:text-destructive"
+                      >
+                        削除
+                      </DropdownMenuItem>
                     </>
                   }
                 />
@@ -143,6 +152,18 @@ export function ToolListPane({
         fieldId="tool-name"
         placeholder="例: 在庫管理ツール"
         onAdd={onAddTool}
+      />
+      <DeleteConfirmDialog
+        open={deleteTarget !== null}
+        onOpenChange={(open) => { if (!open) setDeleteTarget(null); }}
+        title="ツールを削除"
+        itemName={deleteTarget?.name ?? ""}
+        onConfirm={() => {
+          if (deleteTarget) {
+            onDeleteTool(deleteTarget.id);
+            setDeleteTarget(null);
+          }
+        }}
       />
     </aside>
   );

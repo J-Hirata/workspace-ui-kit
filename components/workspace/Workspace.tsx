@@ -73,9 +73,13 @@ async function saveTool(tool: Tool): Promise<void> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ tool }),
   });
-  if (!res.ok) {
-    throw new Error(`保存失敗: ${res.status}`);
-  }
+  if (!res.ok) throw new Error(`保存失敗: ${res.status}`);
+}
+
+/** 1件の Tool を API から DELETE する */
+async function deleteTool(id: string): Promise<void> {
+  const res = await fetch(`/api/tools/${id}`, { method: "DELETE" });
+  if (!res.ok) throw new Error(`削除失敗: ${res.status}`);
 }
 
 export function Workspace({ initialTools, workspace }: WorkspaceProps) {
@@ -201,6 +205,29 @@ export function Workspace({ initialTools, workspace }: WorkspaceProps) {
     [selectedZone, scheduleSave],
   );
 
+  const removeTool = useCallback(
+    async (id: string) => {
+      setSaveStatus("saving");
+      try {
+        await deleteTool(id);
+        setTools((prev) => {
+          const next = prev.filter((t) => t.id !== id);
+          // 削除後の選択: 同じゾーンの別ツール、なければ他ゾーンの先頭
+          if (selectedToolId === id) {
+            const inZone = next.filter((t) => t.zone === selectedZone);
+            setSelectedToolId(inZone[0]?.id ?? next[0]?.id ?? "");
+          }
+          return next;
+        });
+        setSaveStatus("saved");
+        setTimeout(() => setSaveStatus("idle"), 2000);
+      } catch {
+        setSaveStatus("error");
+      }
+    },
+    [selectedToolId, selectedZone],
+  );
+
   const handleDragStart = useCallback((event: DragStartEvent) => {
     setActiveDragId(String(event.active.id));
   }, []);
@@ -284,6 +311,7 @@ export function Workspace({ initialTools, workspace }: WorkspaceProps) {
               onSelectTool={setSelectedToolId}
               onAddTool={addTool}
               onMoveToolToZone={moveToolToZone}
+              onDeleteTool={removeTool}
             />
             <div className="min-w-0 flex-1 overflow-hidden">
               <ToolDetailPane
@@ -298,6 +326,7 @@ export function Workspace({ initialTools, workspace }: WorkspaceProps) {
                 }
                 onUpdateTasks={(tasks) => updateTool(activeTool.id, { tasks })}
               />
+
             </div>
             <ToolMaterialsPane
               toolId={activeTool.id}

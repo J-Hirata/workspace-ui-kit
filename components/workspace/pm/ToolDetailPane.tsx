@@ -18,7 +18,7 @@ import { StarRating } from "@/components/workspace/pm/StarRating";
 type ToolDetailPaneProps = {
   tool: Tool;
   onUpdatePriority: (axis: keyof Priority, value: number) => void;
-  onUpdateField: (field: "currentVersion" | "markdown", value: string) => void;
+  onUpdateField: (field: "name" | "currentVersion" | "markdown", value: string) => void;
   onUpdateTasks: (tasks: Task[]) => void;
 };
 
@@ -72,7 +72,16 @@ export function ToolDetailPane({
         <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
           P3 本文
         </p>
-        <h1 className="mt-1 text-lg font-semibold">{tool.name}</h1>
+        <div className="mt-1">
+          <InlineTextField
+            key={`${fieldKey}-name`}
+            value={tool.name}
+            onSave={(v) => onUpdateField("name", v)}
+            ariaLabel="ツール名"
+            placeholder="ツール名を入力"
+            className="text-lg font-semibold"
+          />
+        </div>
 
         <Card className="mt-4 border-border bg-muted/20">
           <CardHeader className="pb-2">
