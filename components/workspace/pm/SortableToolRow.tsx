@@ -8,6 +8,7 @@ import { GripVertical, MoreHorizontal } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { type ToolRow, type ZoneKey } from "@/lib/pm-schema";
 import { PriorityStarBadge } from "@/components/workspace/pm/PriorityStarBadge";
+import { ProgressMiniBar } from "@/components/workspace/pm/ProgressMiniBar";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -81,6 +82,7 @@ export function SortableToolRow({
           <GripVertical aria-hidden className="size-4" />
         </span>
         <span className="min-w-0 flex-1 truncate text-sm">{tool.name}</span>
+        <ProgressMiniBar progress={tool.progress} />
         <PriorityStarBadge total={tool.priorityTotal} selected={selected} />
       </button>
       <DropdownMenu>
