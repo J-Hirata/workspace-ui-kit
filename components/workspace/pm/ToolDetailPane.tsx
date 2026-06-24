@@ -2,36 +2,26 @@
 
 import { Plus } from "lucide-react";
 
-import { type Task, type Tool, type Priority } from "@/lib/pm-schema";
-import { PRIORITY_AXIS_LABELS, showsCurrentVersion } from "@/lib/pm-labels";
-import { getPriorityTotal } from "@/lib/computed/priority";
+import { type ProjectDetail, type Task, type Tool } from "@/lib/pm-schema";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import {
-  InlineFieldRow,
-  InlineTextField,
-  InlineTextareaField,
-} from "@/components/primitives";
-import { StarRating } from "@/components/workspace/pm/StarRating";
+import { InlineTextField } from "@/components/primitives";
+import { ProjectDetailSection } from "@/components/workspace/pm/ProjectDetailSection";
 
 type ToolDetailPaneProps = {
   tool: Tool;
-  onUpdatePriority: (axis: keyof Priority, value: number) => void;
-  onUpdateField: (field: "name" | "currentVersion" | "markdown", value: string) => void;
+  onUpdateField: (field: "name", value: string) => void;
   onUpdateTasks: (tasks: Task[]) => void;
+  onUpdateProjectDetails: (details: ProjectDetail[]) => void;
 };
 
 export function ToolDetailPane({
   tool,
-  onUpdatePriority,
   onUpdateField,
   onUpdateTasks,
+  onUpdateProjectDetails,
 }: ToolDetailPaneProps) {
-  const total = getPriorityTotal(tool.priority);
-  const showVersion = showsCurrentVersion(tool.zone);
   const fieldKey = tool.id;
-
   const activeTasks = tool.tasks.filter((t) => !t.done);
   const doneTasks = tool.tasks.filter((t) => t.done);
 
@@ -41,8 +31,6 @@ export function ToolDetailPane({
     );
   };
 
-  // チェック切替: done を反転。完了したタスクは配列の末尾へ送り、
-  // 「完了済みタスク」セクション側で表示順が安定するようにする。
   const toggleTaskDone = (id: string, done: boolean) => {
     const target = tool.tasks.find((t) => t.id === id);
     if (!target) return;
@@ -57,7 +45,6 @@ export function ToolDetailPane({
       text: "",
       done: false,
     };
-    // 未完了行の直後（完了済みの手前）に追加する
     const actives = tool.tasks.filter((t) => !t.done);
     const dones = tool.tasks.filter((t) => t.done);
     onUpdateTasks([...actives, task, ...dones]);
@@ -83,52 +70,7 @@ export function ToolDetailPane({
           />
         </div>
 
-        <Card className="mt-4 border-border bg-muted/20">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm">
-              優先度（★クリックで1〜5）
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-3">
-            <StarRating
-              key={`${fieldKey}-impact`}
-              label={PRIORITY_AXIS_LABELS.impact}
-              value={tool.priority.impact}
-              onChange={(v) => onUpdatePriority("impact", v)}
-            />
-            <StarRating
-              key={`${fieldKey}-urgency`}
-              label={PRIORITY_AXIS_LABELS.urgency}
-              value={tool.priority.urgency}
-              onChange={(v) => onUpdatePriority("urgency", v)}
-            />
-            <StarRating
-              key={`${fieldKey}-ease`}
-              label={PRIORITY_AXIS_LABELS.ease}
-              value={tool.priority.ease}
-              onChange={(v) => onUpdatePriority("ease", v)}
-            />
-            <p className="text-[10px] text-muted-foreground">
-              合計 {total} → P2 右端
-            </p>
-          </CardContent>
-        </Card>
-
-        <div className="mt-4 space-y-3 text-sm">
-          {showVersion && (
-            <InlineFieldRow label="現行バージョン">
-              <InlineTextField
-                key={`${fieldKey}-version`}
-                value={tool.currentVersion}
-                onSave={(v) => onUpdateField("currentVersion", v)}
-                ariaLabel="現行バージョン"
-                placeholder="v0.1"
-              />
-            </InlineFieldRow>
-          )}
-        </div>
-
-        <div className="mt-6 flex items-center justify-between">
+        <div className="mt-4 flex items-center justify-between">
           <h2 className="text-sm font-semibold">タスク予定</h2>
           <Button
             variant="outline"
@@ -179,16 +121,12 @@ export function ToolDetailPane({
           ))}
         </div>
 
-        <h2 className="mt-6 text-sm font-semibold">
-          プロジェクト詳細（Markdown）
-        </h2>
-        <div className="mt-2 min-w-0">
-          <InlineTextareaField
-            key={`${fieldKey}-markdown`}
-            value={tool.markdown}
-            onSave={(v) => onUpdateField("markdown", v)}
-            ariaLabel="プロジェクト詳細 Markdown"
-            placeholder="目的・仕様・改修メモなど"
+        <div className="mt-6">
+          <ProjectDetailSection
+            key={`${fieldKey}-details`}
+            toolId={tool.id}
+            details={tool.projectDetails}
+            onUpdateDetails={onUpdateProjectDetails}
           />
         </div>
 

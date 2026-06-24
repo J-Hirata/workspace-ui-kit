@@ -320,17 +320,19 @@ export function Workspace({ initialTools, workspace }: WorkspaceProps) {
             <div className="min-w-0 flex-1 overflow-hidden">
               <ToolDetailPane
                 tool={activeTool}
-                onUpdatePriority={(axis, value) =>
-                  updateTool(activeTool.id, {
-                    priority: { ...activeTool.priority, [axis]: value },
-                  })
-                }
                 onUpdateField={(field, value) =>
                   updateTool(activeTool.id, { [field]: value })
                 }
                 onUpdateTasks={(tasks) => updateTool(activeTool.id, { tasks })}
+                onUpdateProjectDetails={(projectDetails) => {
+                  const markdown = [...projectDetails]
+                    .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+                    .map((d) => d.text)
+                    .filter(Boolean)
+                    .join("\n\n");
+                  updateTool(activeTool.id, { projectDetails, markdown });
+                }}
               />
-
             </div>
             <ToolMaterialsPane
               toolId={activeTool.id}
