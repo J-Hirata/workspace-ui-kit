@@ -4,7 +4,7 @@ import { Plus } from "lucide-react";
 
 import { type ProjectDetail } from "@/lib/pm-schema";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 
 type ProjectDetailSectionProps = {
   toolId: string;
@@ -15,15 +15,22 @@ type ProjectDetailSectionProps = {
 function formatDetailDate(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleDateString("ja-JP", { month: "numeric", day: "numeric" });
+  return d.toLocaleDateString("ja-JP", {
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+  });
 }
 
 /** 新しい行が上、古い行が下 */
 function sortNewestFirst(details: ProjectDetail[]): ProjectDetail[] {
-  return [...details].sort(
-    (a, b) => b.createdAt.localeCompare(a.createdAt),
+  return [...details].sort((a, b) =>
+    b.createdAt.localeCompare(a.createdAt),
   );
 }
+
+/** 1行 Input 相当（約2rem）の 10〜15 倍 — 詳細を読みやすくする高さ */
+const DETAIL_ROW_MIN_HEIGHT = "min-h-80";
 
 export function ProjectDetailSection({
   toolId,
@@ -61,24 +68,24 @@ export function ProjectDetailSection({
           行を追加
         </Button>
       </div>
-      <div className="mt-2 space-y-2">
+      <div className="mt-3 space-y-4">
         {sorted.length === 0 && (
           <p className="text-xs text-muted-foreground">
             メモがありません。「行を追加」で新しい行を上に足せます。
           </p>
         )}
         {sorted.map((detail) => (
-          <div key={detail.id} className="flex items-start gap-2">
-            <span
-              className="mt-2 w-10 shrink-0 text-[10px] font-medium tabular-nums text-muted-foreground"
-              aria-hidden
-            >
+          <article
+            key={detail.id}
+            className="rounded-lg border border-border bg-card/60 p-3"
+          >
+            <p className="mb-2 text-[11px] font-medium tabular-nums text-muted-foreground">
               {formatDetailDate(detail.createdAt)}
-            </span>
-            <Input
+            </p>
+            <Textarea
               key={`${detail.id}-input`}
               defaultValue={detail.text}
-              placeholder="目的・仕様・改修メモなど"
+              placeholder="目的・仕様・改修メモ・全体像など（複数行で記述）"
               aria-label={`${formatDetailDate(detail.createdAt)} のプロジェクト詳細`}
               onBlur={(e) => {
                 if (e.target.value !== detail.text) {
@@ -86,16 +93,16 @@ export function ProjectDetailSection({
                 }
               }}
               onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  (e.target as HTMLInputElement).blur();
+                if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                  (e.target as HTMLTextAreaElement).blur();
                 } else if (e.key === "Escape") {
-                  (e.target as HTMLInputElement).value = detail.text;
-                  (e.target as HTMLInputElement).blur();
+                  (e.target as HTMLTextAreaElement).value = detail.text;
+                  (e.target as HTMLTextAreaElement).blur();
                 }
               }}
-              className="min-h-8 bg-card"
+              className={`${DETAIL_ROW_MIN_HEIGHT} w-full resize-y bg-card text-sm leading-relaxed whitespace-pre-line`}
             />
-          </div>
+          </article>
         ))}
       </div>
     </div>

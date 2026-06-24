@@ -1,6 +1,6 @@
 "use client";
 
-import { Plus } from "lucide-react";
+import { Plus, X } from "lucide-react";
 
 import { type ProjectDetail, type Task, type Tool } from "@/lib/pm-schema";
 import { Button } from "@/components/ui/button";
@@ -50,6 +50,11 @@ export function ToolDetailPane({
     onUpdateTasks([...actives, task, ...dones]);
   };
 
+  /** タスクを完全に削除（やめる） */
+  const removeTask = (id: string) => {
+    onUpdateTasks(tool.tasks.filter((t) => t.id !== id));
+  };
+
   return (
     <section
       className="h-full min-w-0 overflow-x-hidden overflow-y-auto bg-background"
@@ -95,7 +100,7 @@ export function ToolDetailPane({
                 checked={false}
                 disabled={task.text.trim() === ""}
                 onChange={() => toggleTaskDone(task.id, true)}
-                aria-label={`タスク「${task.text || "（空）"}」を完了にする`}
+                aria-label={`タスク「${task.text || "（空）"}」を完了済みへ移す`}
                 className="size-4 shrink-0 cursor-pointer rounded border-border accent-primary disabled:cursor-not-allowed disabled:opacity-40"
               />
               <Input
@@ -115,8 +120,18 @@ export function ToolDetailPane({
                     (e.target as HTMLInputElement).blur();
                   }
                 }}
-                className="h-8 bg-card"
+                className="h-8 min-w-0 flex-1 bg-card"
               />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-xs"
+                aria-label={`タスク「${task.text || "（空）"}」を削除する`}
+                onClick={() => removeTask(task.id)}
+                className="shrink-0 text-muted-foreground hover:text-destructive"
+              >
+                <X className="size-3.5" />
+              </Button>
             </div>
           ))}
         </div>
@@ -139,7 +154,7 @@ export function ToolDetailPane({
         <div className="mt-2 space-y-1.5 pb-6">
           {doneTasks.length === 0 ? (
             <p className="text-xs text-muted-foreground">
-              チェックしたタスクがここに移動します。
+              チェックで完了済みへ。右の × でタスクごと削除できます。
             </p>
           ) : (
             doneTasks.map((task) => (
@@ -151,9 +166,19 @@ export function ToolDetailPane({
                   aria-label={`タスク「${task.text}」をタスク予定に戻す`}
                   className="size-4 shrink-0 cursor-pointer rounded border-border accent-primary"
                 />
-                <span className="text-sm text-muted-foreground line-through">
+                <span className="min-w-0 flex-1 text-sm text-muted-foreground line-through">
                   {task.text}
                 </span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-xs"
+                  aria-label={`完了済みタスク「${task.text}」を削除する`}
+                  onClick={() => removeTask(task.id)}
+                  className="shrink-0 text-muted-foreground hover:text-destructive"
+                >
+                  <X className="size-3.5" />
+                </Button>
               </div>
             ))
           )}
