@@ -6,6 +6,7 @@ export const ZONE_LABELS: Record<ZoneKey, string> = {
   on_hold: "保留",
   planning: "プランニング中",
   archived: "アーカイブ",
+  completed: "完成ツール",
 };
 
 export const ZONE_HINTS: Record<ZoneKey, string> = {
@@ -13,7 +14,8 @@ export const ZONE_HINTS: Record<ZoneKey, string> = {
   operating: "稼働中・改良を継続",
   on_hold: "もうすぐ着手可・計画済み",
   planning: "ざっくり検討・プラン策定中",
-  archived: "完了・見送り",
+  archived: "見送り・監視不要",
+  completed: "独り立ち・使用可能",
 };
 
 /** 現行バージョン欄を出す区分（実装が進んでいるもの） */

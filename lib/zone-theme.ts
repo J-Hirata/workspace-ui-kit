@@ -7,6 +7,7 @@ export const ZONE_ORDER: ZoneKey[] = [
   "on_hold",
   "planning",
   "archived",
+  "completed",
 ];
 
 export type ZoneTheme = {
@@ -67,6 +68,15 @@ export const ZONE_THEMES: Record<ZoneKey, ZoneTheme> = {
     pane2Bg: "bg-slate-100/90 dark:bg-slate-900/40",
     chip: "bg-slate-200 text-slate-800 dark:bg-slate-700 dark:text-slate-100",
     label: "text-slate-700 dark:text-slate-300",
+  },
+  completed: {
+    navIdle:
+      "border-l-violet-400 bg-violet-50/70 text-violet-950 hover:bg-violet-50 dark:bg-violet-950/30 dark:text-violet-100",
+    navActive:
+      "border-l-violet-500 bg-violet-100 text-violet-950 shadow-sm dark:bg-violet-950/50 dark:text-violet-50",
+    pane2Bg: "bg-violet-50/90 dark:bg-violet-950/25",
+    chip: "bg-violet-100 text-violet-900 dark:bg-violet-900/60 dark:text-violet-100",
+    label: "text-violet-800 dark:text-violet-200",
   },
 };
 

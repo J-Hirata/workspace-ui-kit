@@ -59,9 +59,11 @@ function createMinimalTool(name: string, zone: ZoneKey): Tool {
     name,
     zone,
     priority: { impact: 3, urgency: 3, ease: 3 },
+    progress: 1,
     currentVersion: "",
     tasks: createEmptyTasks(id),
     markdown: "",
+    projectDetails: [],
     materials: { memo: "", attachments: [], links: [] },
   };
 }
@@ -139,6 +141,7 @@ export function Workspace({ initialTools, workspace }: WorkspaceProps) {
       on_hold: 0,
       planning: 0,
       archived: 0,
+      completed: 0,
     };
     for (const t of tools) c[t.zone]++;
     return c;
@@ -152,6 +155,7 @@ export function Workspace({ initialTools, workspace }: WorkspaceProps) {
           id: t.id,
           name: t.name,
           priorityTotal: getPriorityTotal(t.priority),
+          progress: t.progress,
         })),
     [tools, selectedZone],
   );

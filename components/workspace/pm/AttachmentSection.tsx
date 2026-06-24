@@ -79,6 +79,7 @@ export function AttachmentSection({
         id: `att-${Date.now()}-${i}`,
         name: file.name || `貼り付け-${new Date().toLocaleString("ja-JP")}.png`,
         mimeType: file.type,
+        kind: "file" as const,
         dataUrl: await readAsDataUrl(file),
       })),
     );
