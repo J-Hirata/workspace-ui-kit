@@ -1,6 +1,6 @@
 "use client";
 
-import { Plus } from "lucide-react";
+import { Plus, X } from "lucide-react";
 
 import { type ProjectDetail } from "@/lib/pm-schema";
 import { Button } from "@/components/ui/button";
@@ -45,11 +45,16 @@ export function ProjectDetailSection({
     );
   };
 
+  const removeRow = (id: string) => {
+    onUpdateDetails(details.filter((d) => d.id !== id));
+  };
+
   const addRow = () => {
     const row: ProjectDetail = {
       id: `${toolId}-detail-${Date.now()}`,
       text: "",
       createdAt: new Date().toISOString(),
+      deletable: true,
     };
     onUpdateDetails([row, ...details]);
   };
@@ -79,9 +84,23 @@ export function ProjectDetailSection({
             key={detail.id}
             className="rounded-lg border border-border bg-card/60 p-3"
           >
-            <p className="mb-2 text-[11px] font-medium tabular-nums text-muted-foreground">
-              {formatDetailDate(detail.createdAt)}
-            </p>
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <p className="text-[11px] font-medium tabular-nums text-muted-foreground">
+                {formatDetailDate(detail.createdAt)}
+              </p>
+              {detail.deletable && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-xs"
+                  aria-label={`${formatDetailDate(detail.createdAt)} の行を削除する`}
+                  onClick={() => removeRow(detail.id)}
+                  className="shrink-0 text-muted-foreground hover:text-destructive"
+                >
+                  <X className="size-3.5" />
+                </Button>
+              )}
+            </div>
             <Textarea
               key={`${detail.id}-input`}
               defaultValue={detail.text}

@@ -15,3 +15,6 @@ CREATE TABLE IF NOT EXISTS project_details (
 
 -- 3. attachments に種別列
 ALTER TABLE attachments ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'file';
+
+-- 4. project_details に削除可否（ユーザー追加行のみ true）
+ALTER TABLE project_details ADD COLUMN IF NOT EXISTS deletable BOOLEAN NOT NULL DEFAULT false;

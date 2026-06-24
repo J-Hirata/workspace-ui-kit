@@ -25,6 +25,11 @@ export async function ensureV2Schema(): Promise<void> {
     ALTER TABLE attachments ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'file'
   `;
 
+  await sql`
+    ALTER TABLE project_details
+    ADD COLUMN IF NOT EXISTS deletable BOOLEAN NOT NULL DEFAULT false
+  `;
+
   // markdown が非空で project_details が空のツールを移行
   const toolsToMigrate = await sql`
     SELECT t.id, t.markdown, t.updated_at
