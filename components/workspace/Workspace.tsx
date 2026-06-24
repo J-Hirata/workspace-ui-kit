@@ -337,10 +337,20 @@ export function Workspace({ initialTools, workspace }: WorkspaceProps) {
             <ToolMaterialsPane
               toolId={activeTool.id}
               materials={activeTool.materials}
+              priority={activeTool.priority}
+              progress={activeTool.progress}
               onUpdateMaterials={(patch) =>
                 updateTool(activeTool.id, {
                   materials: { ...activeTool.materials, ...patch },
                 })
+              }
+              onUpdatePriority={(axis, value) =>
+                updateTool(activeTool.id, {
+                  priority: { ...activeTool.priority, [axis]: value },
+                })
+              }
+              onUpdateProgress={(progress) =>
+                updateTool(activeTool.id, { progress })
               }
             />
           </div>

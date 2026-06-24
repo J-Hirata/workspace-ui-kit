@@ -1,29 +1,39 @@
 "use client";
 
 /**
- * P4 添付（画像 / PDF）セクション。
- *
- * 入力3方式:
- *   1. 枠クリック → ファイル選択ダイアログ
- *   2. ドラッグ&ドロップ
- *   3. 枠クリック（フォーカス）→ Ctrl+V でクリップボード画像を貼り付け
- *
- * データは dataURL でメモリ上に保持する（v1.1 は永続化なし。
- * リロードで消えるのは既知の制限で、永続化は次回課題）。
+ * P4 添付セクション（ファイル + ローカルパスリンク）。
+ * ファイルは DB に dataUrl 保存。パスは文字列のみ保存。
  */
 
 import { useEffect, useRef, useState } from "react";
-import { FileText, ImagePlus, X } from "lucide-react";
+import {
+  ChevronDown,
+  Copy,
+  FileSpreadsheet,
+  FileText,
+  FolderOpen,
+  ImagePlus,
+  X,
+} from "lucide-react";
 
 import { type PmAttachment } from "@/lib/pm-schema";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const ACCEPTED_TYPES = [
   "image/jpeg",
@@ -31,10 +41,18 @@ const ACCEPTED_TYPES = [
   "image/gif",
   "image/webp",
   "application/pdf",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.ms-excel",
+  "text/csv",
+  "text/plain",
 ];
 
+const ACCEPTED_EXTENSIONS = ["xlsx", "xls", "csv", "txt"];
+
 function isAccepted(file: File) {
-  return ACCEPTED_TYPES.includes(file.type);
+  if (ACCEPTED_TYPES.includes(file.type)) return true;
+  const ext = file.name.split(".").pop()?.toLowerCase();
+  return ACCEPTED_EXTENSIONS.includes(ext ?? "");
 }
 
 function readAsDataUrl(file: File): Promise<string> {
@@ -46,11 +64,15 @@ function readAsDataUrl(file: File): Promise<string> {
   });
 }
 
-/** data: URL のまま新規タブで開くとブロックされるため Blob URL に変換して開く */
 async function openInNewTab(dataUrl: string) {
   const blob = await (await fetch(dataUrl)).blob();
   const url = URL.createObjectURL(blob);
   window.open(url, "_blank", "noopener");
+}
+
+function fileNameFromPath(path: string): string {
+  const parts = path.replace(/\\/g, "/").split("/");
+  return parts[parts.length - 1] || path;
 }
 
 type AttachmentSectionProps = {
@@ -65,8 +87,10 @@ export function AttachmentSection({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const [preview, setPreview] = useState<PmAttachment | null>(null);
+  const [pathDialogOpen, setPathDialogOpen] = useState(false);
+  const [pathInput, setPathInput] = useState("");
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  // 最新の attachments / onChange を参照するための ref（document リスナー用）
   const stateRef = useRef({ attachments, onChange });
   stateRef.current = { attachments, onChange };
 
@@ -78,7 +102,7 @@ export function AttachmentSection({
       accepted.map(async (file, i) => ({
         id: `att-${Date.now()}-${i}`,
         name: file.name || `貼り付け-${new Date().toLocaleString("ja-JP")}.png`,
-        mimeType: file.type,
+        mimeType: file.type || "application/octet-stream",
         kind: "file" as const,
         dataUrl: await readAsDataUrl(file),
       })),
@@ -87,10 +111,6 @@ export function AttachmentSection({
     current.onChange([...current.attachments, ...added]);
   };
 
-  // スクリーンショット等のクリップボード画像を「画面のどこでも Ctrl+V」で
-  // 受け取る。div の onPaste はフォーカス状況によって発火しないことがある
-  // ため、document レベルで拾う。入力欄（input / textarea）への通常の
-  // 貼り付けは邪魔しない。
   useEffect(() => {
     const handlePaste = (e: ClipboardEvent) => {
       const files = Array.from(e.clipboardData?.files ?? []);
@@ -102,7 +122,6 @@ export function AttachmentSection({
     };
     document.addEventListener("paste", handlePaste);
     return () => document.removeEventListener("paste", handlePaste);
-    // addFiles は stateRef 経由で常に最新を参照するため依存不要
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -110,16 +129,81 @@ export function AttachmentSection({
     onChange(attachments.filter((a) => a.id !== id));
   };
 
-  const images = attachments.filter((a) => a.mimeType.startsWith("image/"));
-  const pdfs = attachments.filter((a) => a.mimeType === "application/pdf");
+  const addPath = () => {
+    const trimmed = pathInput.trim();
+    if (!trimmed) return;
+    const entry: PmAttachment = {
+      id: `path-${Date.now()}`,
+      name: fileNameFromPath(trimmed),
+      mimeType: "text/x-file-path",
+      kind: "path",
+      path: trimmed,
+    };
+    onChange([...attachments, entry]);
+    setPathInput("");
+    setPathDialogOpen(false);
+  };
+
+  const copyPath = async (id: string, path: string) => {
+    try {
+      await navigator.clipboard.writeText(path);
+      setCopiedId(id);
+      setTimeout(() => setCopiedId(null), 1500);
+    } catch {
+      /* clipboard 不可時は無視 */
+    }
+  };
+
+  const fileAttachments = attachments.filter((a) => a.kind !== "path");
+  const pathAttachments = attachments.filter((a) => a.kind === "path");
+
+  const images = fileAttachments.filter((a) => a.mimeType.startsWith("image/"));
+  const pdfs = fileAttachments.filter((a) => a.mimeType === "application/pdf");
+  const spreadsheets = fileAttachments.filter(
+    (a) =>
+      a.mimeType.includes("spreadsheet") ||
+      a.mimeType.includes("excel") ||
+      a.mimeType === "text/csv" ||
+      a.name.endsWith(".xlsx") ||
+      a.name.endsWith(".xls") ||
+      a.name.endsWith(".csv"),
+  );
+  const textFiles = fileAttachments.filter(
+    (a) =>
+      a.mimeType === "text/plain" ||
+      a.name.endsWith(".txt"),
+  );
+
+  const acceptAttr = [
+    ...ACCEPTED_TYPES,
+    ...ACCEPTED_EXTENSIONS.map((e) => `.${e}`),
+  ].join(",");
 
   return (
     <div className="flex flex-col gap-2">
-      {/* 入力枠（クリック / D&D / Ctrl+V） */}
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={
+            <Button variant="outline" size="sm" className="w-full justify-between">
+              追加
+              <ChevronDown className="size-4 opacity-60" />
+            </Button>
+          }
+        />
+        <DropdownMenuContent align="start" className="w-(--anchor-width)">
+          <DropdownMenuItem onClick={() => fileInputRef.current?.click()}>
+            ファイルを追加
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setPathDialogOpen(true)}>
+            パスを貼る
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
       <div
         role="button"
         tabIndex={0}
-        aria-label="画像・PDF を追加（クリックで選択、ドラッグ&ドロップ、Ctrl+V 貼り付け）"
+        aria-label="ファイルを追加（クリックで選択、ドラッグ&ドロップ、Ctrl+V 貼り付け）"
         onClick={() => fileInputRef.current?.click()}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
@@ -154,20 +238,17 @@ export function AttachmentSection({
       >
         <ImagePlus className="size-5 text-muted-foreground" aria-hidden />
         <p className="text-[11px] leading-relaxed text-muted-foreground">
-          クリックで選択 / ドラッグ&ドロップ
-          <br />
-          スクショは <span className="font-bold">Ctrl+V</span>{" "}
-          で貼り付け（画面のどこでも可）
+          クリック / D&D / Ctrl+V
         </p>
         <p className="text-[10px] text-muted-foreground/70">
-          JPEG・PNG・GIF・WebP・PDF
+          画像・PDF・Excel・CSV・txt
         </p>
       </div>
       <input
         ref={fileInputRef}
         type="file"
         multiple
-        accept={ACCEPTED_TYPES.join(",")}
+        accept={acceptAttr}
         className="hidden"
         onChange={(e) => {
           void addFiles(Array.from(e.target.files ?? []));
@@ -175,7 +256,45 @@ export function AttachmentSection({
         }}
       />
 
-      {/* 画像サムネイル */}
+      {pathAttachments.length > 0 && (
+        <ul className="space-y-1">
+          {pathAttachments.map((item) => (
+            <li
+              key={item.id}
+              className="group flex items-start gap-1.5 rounded border border-border bg-card px-2 py-1.5"
+            >
+              <FolderOpen className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[11px] font-medium">{item.name}</p>
+                <p className="break-all text-[10px] text-muted-foreground">
+                  {item.path}
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-xs"
+                aria-label={`${item.name} のパスをコピー`}
+                onClick={() => item.path && void copyPath(item.id, item.path)}
+              >
+                <Copy className="size-3" />
+              </Button>
+              {copiedId === item.id && (
+                <span className="text-[9px] text-muted-foreground">コピー済</span>
+              )}
+              <button
+                type="button"
+                onClick={() => removeAttachment(item.id)}
+                aria-label={`${item.name} を削除`}
+                className="shrink-0 text-muted-foreground hover:text-foreground"
+              >
+                <X className="size-3.5" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
       {images.length > 0 && (
         <div className="grid grid-cols-3 gap-2">
           {images.map((img) => (
@@ -187,7 +306,7 @@ export function AttachmentSection({
                   aria-label={`${img.name} を拡大表示`}
                   className="block w-full cursor-zoom-in overflow-hidden rounded border border-border"
                 >
-                  {/* eslint-disable-next-line @next/next/no-img-element -- dataURL のためnext/image不可 */}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={img.dataUrl}
                     alt={img.name}
@@ -195,10 +314,7 @@ export function AttachmentSection({
                   />
                 </button>
               ) : (
-                <div
-                  className="flex h-16 w-full items-center justify-center rounded border border-border bg-muted px-1 text-center text-[9px] text-muted-foreground"
-                  title={`${img.name}（実データなし）`}
-                >
+                <div className="flex h-16 w-full items-center justify-center rounded border border-border bg-muted px-1 text-center text-[9px] text-muted-foreground">
                   {img.name.slice(0, 8)}
                 </div>
               )}
@@ -215,25 +331,30 @@ export function AttachmentSection({
         </div>
       )}
 
-      {/* PDF チップ */}
-      {pdfs.length > 0 && (
+      {[...pdfs, ...spreadsheets, ...textFiles].length > 0 && (
         <ul className="space-y-1">
-          {pdfs.map((pdf) => (
-            <li key={pdf.id} className="group relative">
+          {[...pdfs, ...spreadsheets, ...textFiles].map((file) => (
+            <li key={file.id} className="group relative">
               <button
                 type="button"
-                disabled={!pdf.dataUrl}
-                onClick={() => pdf.dataUrl && void openInNewTab(pdf.dataUrl)}
-                aria-label={`${pdf.name} を別タブで開く`}
+                disabled={!file.dataUrl}
+                onClick={() => file.dataUrl && void openInNewTab(file.dataUrl)}
+                aria-label={`${file.name} を別タブで開く`}
                 className="flex w-full items-center gap-1.5 rounded border border-border bg-card px-2 py-1.5 text-left text-[11px] hover:bg-muted/50 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                <FileText className="size-3.5 shrink-0 text-red-500" aria-hidden />
-                <span className="truncate">{pdf.name}</span>
+                {file.mimeType.includes("spreadsheet") ||
+                file.mimeType.includes("excel") ||
+                file.mimeType === "text/csv" ? (
+                  <FileSpreadsheet className="size-3.5 shrink-0 text-emerald-600" />
+                ) : (
+                  <FileText className="size-3.5 shrink-0 text-red-500" />
+                )}
+                <span className="truncate">{file.name}</span>
               </button>
               <button
                 type="button"
-                onClick={() => removeAttachment(pdf.id)}
-                aria-label={`${pdf.name} を削除`}
+                onClick={() => removeAttachment(file.id)}
+                aria-label={`${file.name} を削除`}
                 className="absolute -top-1.5 -right-1.5 hidden size-4 items-center justify-center rounded-full bg-foreground text-background shadow group-hover:flex"
               >
                 <X className="size-3" aria-hidden />
@@ -247,7 +368,31 @@ export function AttachmentSection({
         <p className="text-xs text-muted-foreground">添付なし</p>
       )}
 
-      {/* 画像プレビュー */}
+      <Dialog open={pathDialogOpen} onOpenChange={setPathDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>ローカルパスを貼る</DialogTitle>
+            <DialogDescription>
+              例: C:\Users\...\在庫.xlsx — ブラウザからは開けないため、コピーして使います。
+            </DialogDescription>
+          </DialogHeader>
+          <Input
+            value={pathInput}
+            onChange={(e) => setPathInput(e.target.value)}
+            placeholder="C:\Users\...\ファイル名.xlsx"
+            aria-label="ファイルパス"
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPathDialogOpen(false)}>
+              キャンセル
+            </Button>
+            <Button onClick={addPath} disabled={!pathInput.trim()}>
+              追加
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={preview !== null} onOpenChange={() => setPreview(null)}>
         <DialogContent className="max-h-[85vh] max-w-3xl overflow-auto">
           <DialogHeader>
@@ -257,7 +402,7 @@ export function AttachmentSection({
             </DialogDescription>
           </DialogHeader>
           {preview?.dataUrl && (
-            // eslint-disable-next-line @next/next/no-img-element -- dataURL のためnext/image不可
+            // eslint-disable-next-line @next/next/no-img-element
             <img
               src={preview.dataUrl}
               alt={preview.name}
